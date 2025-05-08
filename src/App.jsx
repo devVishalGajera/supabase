@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { Swiper, SwiperSlide } from "swiper/react";
+
+import { Navigation } from "swiper/modules";
+
+import "swiper/css";
+import "swiper/css/navigation";
 import "./App.css";
 
 const supabase = createClient(
@@ -15,17 +21,17 @@ function App() {
 
   useEffect(() => {
     const fetchEmails = async () => {
-      const { data, error, count } = await supabase
-        .from("emails")
-        .select("*", { count: "exact" })
-        .range((page - 1) * pageSize, page * pageSize - 1);
+      const { data, error } = await supabase.rpc("get_grouped_emails_paginated", {
+        page_number: page,
+        page_size: pageSize,
+      });
 
       if (error) {
         console.error(error);
+        setErrorMessage("Failed to fetch emails.");
       } else {
-        setEmails(data);
-        // Check if the next page has no data
-        if (data.length === 0 && page > 1) {
+        setEmails(data || []);
+        if ((data || []).length === 0 && page > 1) {
           setErrorMessage("No more records available.");
         } else {
           setErrorMessage("");
@@ -55,37 +61,57 @@ function App() {
       <div className="email-viewer">
         <h1 className="title">Email Viewer</h1>
         <ul className="email-list">
-          {emails.map((entry) => (
+          {emails.map((group) => (
             <li
-              key={entry.id}
-              className="email-item"
+              key={group.thread_id}
+              className="email-thread"
             >
-              <p>
-                <span className="label">eaccount:</span> {entry.eaccount}
-              </p>
-              <p>
-                <span className="label">from:</span> {entry.from_address_email}
-              </p>
-              <p>
-                <span className="label">lead:</span> {entry.lead}
-              </p>
-              <p>
-                <span className="label">to:</span> {entry.to_address_email_list}
-              </p>
-              <p>
-                <span className="label">subject:</span> {entry.subject}
-              </p>
-              <div className="email-body">
-                <span className="label">Body:</span>
-                <div
-                  dangerouslySetInnerHTML={{ __html: entry.body_html }}
-                  className="body-content"
-                />
-              </div>
+              <Swiper
+                modules={[Navigation]}
+                navigation
+                spaceBetween={20}
+                slidesPerView={1}
+                breakpoints={{
+                  768: { slidesPerView: 1 },
+                  1024: { slidesPerView: 1 },
+                }}
+              >
+                {group.emails.map((entry, index) => (
+                  <SwiperSlide key={index}>
+                    <div className="email-card">
+                      <p>
+                        <span className="label">Account:</span> {entry.eaccount}
+                      </p>
+                      <p>
+                        <span className="label">From:</span> {entry.from_address_email}
+                      </p>
+                      <p>
+                        <span className="label">Lead:</span> {entry.lead}
+                      </p>
+                      <p>
+                        <span className="label">To:</span> {entry.to_address_email_list}
+                      </p>
+                      <p>
+                        <span className="label">Subject:</span> {entry.subject}
+                      </p>
+                      <div className="email-body">
+                        <span className="label">Body:</span>
+                        <div
+                          dangerouslySetInnerHTML={{ __html: entry.body_html }}
+                          className="body-content"
+                        />
+                      </div>
+                    </div>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+              {/* </div> */}
             </li>
           ))}
         </ul>
+
         {errorMessage && <div className="error-message">{errorMessage}</div>}
+
         <div className="pagination">
           <button
             className="pagination-button"
